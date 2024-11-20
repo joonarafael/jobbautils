@@ -1,6 +1,6 @@
 {
   "maintenanceBreak": false,
-  "breakIncoming": false,
-  "breakStart": null,
-  "breakEstimatedEnd": null
+  "breakIncoming": true,
+  "breakStart": "2024-12-01T00:00:00.000Z",
+  "breakEstimatedEnd": "2024-12-01T12:00:00.000Z"
 }
