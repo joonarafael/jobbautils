@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# escape markdown special characters
+# Escape markdown special characters
 escape_markdown() {
   local input="$1"
   local output="$input"
@@ -15,9 +15,9 @@ escape_markdown() {
 }
 
 send_telegram_message() {
-  local chat_id=$1
-  local api_key=$2
-  local message=$3
+  local chat_id="$1"
+  local api_key="$2"
+  local message="$3"
   
   local escaped_message=$(escape_markdown "$message")
 
@@ -29,4 +29,4 @@ send_telegram_message() {
   echo "Telegram API response: $response"
 }
 
-send_telegram_message $1 $2 $3
+send_telegram_message "$1" "$2" "$3"
