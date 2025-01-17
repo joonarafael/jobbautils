@@ -5,9 +5,9 @@ current_version=$1
 bump_mode=$2
 sync_mode=$3
 
-ai_changed=$1
-be_changed=$2
-fe_changed=$3
+ai_changed=$4
+be_changed=$5
+fe_changed=$6
 
 IFS='-' read -r ai_version be_version fe_version <<< "$current_version"
 
