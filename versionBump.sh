@@ -1,12 +1,15 @@
 #!/bin/bash
-
 set -e
 
 current_version=$1
 bump_mode=$2
 sync_mode=$3
 
-IFS=':' read -r ai_version be_version fe_version <<< "$current_version"
+ai_changed=$1
+be_changed=$2
+fe_changed=$3
+
+IFS='-' read -r ai_version be_version fe_version <<< "$current_version"
 
 bump_version() {
     local version="$1"
@@ -30,15 +33,15 @@ bump_version() {
     echo "$major.$minor.$patch"
 }
 
-if ai_files_changed; then
+if [ "$ai_changed" = "true" ]; then
     ai_version=$(bump_version "$ai_version" "$bump_mode")
 fi
 
-if be_files_changed; then
+if [ "$be_changed" = "true" ]; then
     be_version=$(bump_version "$be_version" "$bump_mode")
 fi
 
-if fe_files_changed; then
+if [ "$fe_changed" = "true" ]; then
     fe_version=$(bump_version "$fe_version" "$bump_mode")
 fi
 
@@ -46,6 +49,7 @@ if [ "$sync_mode" = "true" ]; then
     compare_versions() {
         local v1="$1"
         local v2="$2"
+
         IFS='.' read -r v1_major v1_minor v1_patch <<< "$v1"
         IFS='.' read -r v2_major v2_minor v2_patch <<< "$v2"
 
@@ -72,4 +76,4 @@ if [ "$sync_mode" = "true" ]; then
     fe_version="$max_version"
 fi
 
-echo "$ai_version:$be_version:$fe_version"
+echo "$ai_version-$be_version-$fe_version"
