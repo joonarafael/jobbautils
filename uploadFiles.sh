@@ -2,10 +2,22 @@
 
 set -e
 
-ACCESS_TOKEN="${DROPBOX_ACCESS_TOKEN}"
-LOCAL_DIRECTORY="./services/backend/logs/"
-DROPBOX_FOLDER="/GitHubActionsLogs"
+# sanity checks
+if [ "$#" -ne 3 ]; then
+    echo "Usage: $0 <ACCESS_TOKEN> <LOCAL_DIRECTORY> <DROPBOX_FOLDER>"
+    exit 1
+fi
 
+ACCESS_TOKEN="$1"
+LOCAL_DIRECTORY="$2"
+DROPBOX_FOLDER="$3"
+
+if [ ! -d "$LOCAL_DIRECTORY" ]; then
+    echo "Error: Directory '$LOCAL_DIRECTORY' not found!"
+    exit 1
+fi
+
+# upload logic
 upload_file() {
     local file_path="$1"
     local dropbox_path="$DROPBOX_FOLDER/${file_path#$LOCAL_DIRECTORY}"
