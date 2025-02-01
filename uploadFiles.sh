@@ -3,7 +3,7 @@
 set -e
 
 # sanity checks
-if [ "$#" -ne 3 ]; then
+if [ "$#" -ne 4 ]; then
     echo "Usage: $0 <ACCESS_TOKEN> <LOCAL_DIRECTORY> <DROPBOX_FOLDER> <EXECUTION_ID>"
     exit 1
 fi
