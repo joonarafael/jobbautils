@@ -4,14 +4,14 @@ set -e
 
 # sanity checks
 if [ "$#" -ne 4 ]; then
-    echo "Usage: $0 <ACCESS_TOKEN> <LOCAL_DIRECTORY> <DROPBOX_FOLDER> <EXECUTION_ID>"
+    echo "Usage: $0 <ACCESS_TOKEN> <LOCAL_DIRECTORY> <DROPBOX_FOLDER> <PR_TITLE>"
     exit 1
 fi
 
 ACCESS_TOKEN="$1"
 LOCAL_DIRECTORY="$2"
 DROPBOX_FOLDER="$3"
-EXECUTION_ID="$4"
+PR_TITLE="$4"
 
 if [ ! -d "$LOCAL_DIRECTORY" ]; then
     echo "Error: Directory '$LOCAL_DIRECTORY' not found!"
@@ -21,7 +21,7 @@ fi
 # upload logic
 upload_file() {
     local file_path="$1"
-    local dropbox_path="$DROPBOX_FOLDER/$EXECUTION_ID${file_path#$LOCAL_DIRECTORY}"
+    local dropbox_path="$DROPBOX_FOLDER/$PR_TITLE${file_path#$LOCAL_DIRECTORY}"
     dropbox_path=$(echo "$dropbox_path" | sed 's/ /%20/g')
 
     echo "Uploading: $file_path → $dropbox_path"
