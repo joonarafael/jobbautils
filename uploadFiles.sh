@@ -21,7 +21,7 @@ fi
 # upload logic
 upload_file() {
     local file_path="$1"
-    local dropbox_path="$DROPBOX_FOLDER/$EXECUTION_ID/${file_path#$LOCAL_DIRECTORY}"
+    local dropbox_path="$DROPBOX_FOLDER/$EXECUTION_ID${file_path#$LOCAL_DIRECTORY}"
     dropbox_path=$(echo "$dropbox_path" | sed 's/ /%20/g')
 
     echo "Uploading: $file_path → $dropbox_path"
@@ -37,4 +37,5 @@ find "$LOCAL_DIRECTORY" -type f | while read -r file; do
     upload_file "$file"
 done
 
+echo ""
 echo "All files uploaded successfully."
