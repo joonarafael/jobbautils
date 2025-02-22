@@ -1,4 +1,3 @@
-# Source: https://github.com/actions/runner/pkgs/container/actions-runner/342983950?tag=2.322.0
 FROM ghcr.io/actions/actions-runner:2.322.0
 
 # Switch to root user
@@ -21,7 +20,7 @@ RUN apt update -y \
         lsb-release gpg-agent software-properties-common curl jq unzip file \
         psmisc \
         libnss3-tools \
-        docker-compose-plugin \
+        docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin \
         libgtk2.0-0 libgtk-3-0 libnotify-dev libgconf-2-4 libgbm-dev libnss3 libxss1 libasound2 libxtst6 tidy xauth xvfb \
     && rm -rf /var/lib/apt/lists/*
 
@@ -31,6 +30,8 @@ RUN apt update -y \
     && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list \
     && apt update -u \
     && apt install caddy
+
+RUN usermod -aG docker runner
 
 # Switch back to the runner user
 USER runner
