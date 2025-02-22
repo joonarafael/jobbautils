@@ -1,37 +1,169 @@
-FROM ghcr.io/actions/actions-runner:2.322.0
+FROM ubuntu:22.04 AS build
 
-# Switch to root user
-USER root
+# GitHub runner arguments
+ARG RUNNER_VERSION=2.322.0
+ARG RUNNER_CONTAINER_HOOKS_VERSION=0.6.2
 
-# Setup Docker repo
-RUN apt update -y \
-    && install -m 0755 -d /etc/apt/keyrings \
-    && curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc \
-    && chmod a+r /etc/apt/keyrings/docker.asc \
-    && echo \
-        "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-        $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-        tee /etc/apt/sources.list.d/docker.list > /dev/null \
-    && apt update -y
+# Docker and Compose arguments
+ARG DOCKER_VERSION=27.5.1
+ARG COMPOSE_VERSION=v2.32.4
 
-# Install essential packages, including Docker Compose, fuser (psmisc), and Cypress dependencies
-RUN apt update -y \
-    && apt install -y --no-install-recommends \
-        lsb-release gpg-agent software-properties-common curl jq unzip file \
-        psmisc \
-        libnss3-tools \
-        docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin \
-        libgtk2.0-0 libgtk-3-0 libnotify-dev libgconf-2-4 libgbm-dev libnss3 libxss1 libasound2 libxtst6 tidy xauth xvfb \
-    && rm -rf /var/lib/apt/lists/*
+# Dumb-init version
+ARG DUMB_INIT_VERSION=1.2.5
 
-RUN apt update -y \
-    && apt install -y debian-keyring debian-archive-keyring apt-transport-https curl \
-    && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg \
-    && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list \
-    && apt update -u \
-    && apt install caddy
+# Other arguments, expose TARGETPLATFORM for multi-arch builds
+ARG DEBUG=false
+ARG TARGETPLATFORM
 
-RUN usermod -aG docker runner
+# Set environment variables needed at build or run
+ENV DEBIAN_FRONTEND=noninteractive
+ENV RUNNER_MANUALLY_TRAP_SIG=1
+ENV ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT=1
 
-# Switch back to the runner user
+# Copy in environment variables not needed at build
+COPY images/.env /.env
+
+# Shell setup
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# Install base software
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+  apt-transport-https \
+  apt-utils \
+  ca-certificates \
+  curl \
+  gcc \
+  file \
+  git \
+  iproute2 \
+  iptables \
+  jq \
+  libasound2 \
+  libgbm-dev \
+  libgconf-2-4 \
+  libgtk-3-0 \
+  libgtk2.0-0 \
+  libnotify-dev \
+  libnss3 \
+  libnss3-tools \
+  libxss1 \
+  libxtst6 \
+  libyaml-dev \
+  locales \
+  lsb-release \
+  openssl \
+  pigz \
+  pkg-config \
+  psmisc \
+  software-properties-common \
+  sudo \
+  tidy \
+  time \
+  tzdata \
+  uidmap \
+  unzip \
+  wget \
+  xauth \
+  xvfb \
+  xz-utils \
+  zip \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update -y \
+  && apt-get install -y --no-install-recommends \
+  debian-keyring \
+  debian-archive-keyring \
+  && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg \
+  && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list \
+  && apt-get update -u \
+  && apt-get install -y --no-install-recommends caddy
+
+# Runner user
+RUN adduser --disabled-password --gecos "" --uid 1000 runner \
+  && usermod -aG sudo runner \
+  && echo "%sudo   ALL=(ALL:ALL) NOPASSWD:ALL" > /etc/sudoers
+
+# Make and set the working directory
+RUN mkdir -p /home/runner \
+  && chown -R $USERNAME:$GID /home/runner
+
+WORKDIR /home/runner
+
+# Install GitHub CLI
+COPY images/software/gh-cli.sh /gh-cli.sh
+RUN bash /gh-cli.sh && rm /gh-cli.sh
+
+# Install kubectl
+COPY images/software/kubectl.sh /kubectl.sh
+RUN bash /kubectl.sh && rm /kubectl.sh
+
+# Install helm
+COPY images/software/get-helm.sh /helm.sh
+RUN bash /helm.sh && rm /helm.sh
+
+# Install Docker
+RUN export DOCKER_ARCH=x86_64 \
+  && if [ "$RUNNER_ARCH" = "arm64" ]; then export DOCKER_ARCH=aarch64 ; fi \
+  && curl -fLo docker.tgz https://download.docker.com/linux/static/stable/${DOCKER_ARCH}/docker-${DOCKER_VERSION}.tgz \
+  && tar zxvf docker.tgz \
+  && rm -rf docker.tgz
+
+RUN install -o root -g root -m 755 docker/* /usr/bin/ && rm -rf docker
+
+# Runner download supports amd64 as x64
+RUN export ARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) \
+  && echo "ARCH: $ARCH" \
+  && if [ "$ARCH" = "amd64" ]; then export ARCH=x64 ; fi \
+  && curl -L -o runner.tar.gz https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-${ARCH}-${RUNNER_VERSION}.tar.gz \
+  && tar xzf ./runner.tar.gz \
+  && rm runner.tar.gz \
+  && ./bin/installdependencies.sh \
+  && apt-get autoclean \
+  && rm -rf /var/lib/apt/lists/*
+
+# Install container hooks
+RUN curl -f -L -o runner-container-hooks.zip https://github.com/actions/runner-container-hooks/releases/download/v${RUNNER_CONTAINER_HOOKS_VERSION}/actions-runner-hooks-k8s-${RUNNER_CONTAINER_HOOKS_VERSION}.zip \
+  && unzip ./runner-container-hooks.zip -d ./k8s \
+  && rm runner-container-hooks.zip
+
+# Install dumb-init, arch command on OS X reports "i386" for Intel CPUs regardless of bitness
+RUN ARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) \
+  && export ARCH \
+  && if [ "$ARCH" = "arm64" ]; then export ARCH=aarch64 ; fi \
+  && if [ "$ARCH" = "amd64" ] || [ "$ARCH" = "i386" ]; then export ARCH=x86_64 ; fi \
+  && curl -f -L -o /usr/local/bin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v${DUMB_INIT_VERSION}/dumb-init_${DUMB_INIT_VERSION}_${ARCH} \
+  && chmod +x /usr/local/bin/dumb-init
+
+# Make the rootless runner directory and externals directory executable
+RUN mkdir -p /run/user/1000 \
+  && chown runner:runner /run/user/1000 \
+  && chmod a+x /run/user/1000 \
+  && mkdir -p /home/runner/externals \
+  && chown runner:runner /home/runner/externals \
+  && chmod a+x /home/runner/externals
+
+# Docker-compose installation
+RUN ARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) \
+  && export ARCH \
+  && if [ "$ARCH" = "arm64" ]; then export ARCH=aarch64 ; fi \
+  && if [ "$ARCH" = "amd64" ]; then export ARCH=x86_64 ; fi \
+  && curl --create-dirs -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-Linux-${ARCH}" -o /home/runner/bin/docker-compose ; \
+  chmod +x /home/runner/bin/docker-compose
+
+FROM scratch AS final
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV RUNNER_MANUALLY_TRAP_SIG=1
+ENV ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT=1
+
+ENV HOME=/home/runner
+ENV PATH="${PATH}:${HOME}/.local/bin:/home/runner/bin"
+ENV ImageOS=ubuntu22
+
 USER runner
+
+COPY --from=build / /
+
+ENTRYPOINT ["/usr/local/bin/dumb-init", "--"]
