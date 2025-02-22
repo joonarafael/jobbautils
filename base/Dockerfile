@@ -5,7 +5,7 @@ ARG RUNNER_VERSION=2.322.0
 ARG RUNNER_CONTAINER_HOOKS_VERSION=0.6.2
 
 # Docker and Compose arguments
-ARG DOCKER_VERSION=27.5.1
+ARG DOCKER_VERSION=27.5.1s
 ARG COMPOSE_VERSION=v2.32.4
 
 # Dumb-init version
@@ -71,6 +71,7 @@ RUN apt-get update \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
+# Install Caddy
 RUN apt-get update -y \
   && apt-get install -y --no-install-recommends \
   debian-keyring \
@@ -123,7 +124,7 @@ RUN export ARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) \
   && apt-get autoclean \
   && rm -rf /var/lib/apt/lists/*
 
-# Install container hooks
+# Install container hooks required for the runner set
 RUN curl -f -L -o runner-container-hooks.zip https://github.com/actions/runner-container-hooks/releases/download/v${RUNNER_CONTAINER_HOOKS_VERSION}/actions-runner-hooks-k8s-${RUNNER_CONTAINER_HOOKS_VERSION}.zip \
   && unzip ./runner-container-hooks.zip -d ./k8s \
   && rm runner-container-hooks.zip
@@ -144,7 +145,8 @@ RUN mkdir -p /run/user/1000 \
   && chown runner:runner /home/runner/externals \
   && chmod a+x /home/runner/externals
 
-# Docker-compose installation
+# docker-compose installation
+# NOTE: All Docker Compose commands have to be executed with `docker-compose` in the workflow!
 RUN ARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) \
   && export ARCH \
   && if [ "$ARCH" = "arm64" ]; then export ARCH=aarch64 ; fi \
@@ -154,6 +156,7 @@ RUN ARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) \
 
 FROM scratch AS final
 
+# Set Environment
 ENV DEBIAN_FRONTEND=noninteractive
 ENV RUNNER_MANUALLY_TRAP_SIG=1
 ENV ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT=1
