@@ -5,7 +5,7 @@ ARG RUNNER_VERSION=2.322.0
 ARG RUNNER_CONTAINER_HOOKS_VERSION=0.6.2
 
 # Docker and Compose arguments
-ARG DOCKER_VERSION=27.5.1s
+ARG DOCKER_VERSION=27.5.1
 ARG COMPOSE_VERSION=v2.32.4
 
 # Dumb-init version
@@ -155,6 +155,14 @@ RUN ARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) \
   chmod +x /home/runner/bin/docker-compose
 
 FROM scratch AS final
+
+# Labels
+LABEL org.opencontainers.image.source="https://github.com/joonarafael/jobbautils"
+LABEL org.opencontainers.image.title="custom-rootless-ubuntu-jammy"
+LABEL org.opencontainers.image.description="A customized Ubuntu Jammy (22.04 LTS) based runner image for GitHub Actions, rootless"
+LABEL org.opencontainers.image.authors="Natalie Somersall (@some-natalie), Joona Kettunen (@joonarafael)"
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.documentation="https://github.com/some-natalie/kubernoodles/README.md"
 
 # Set Environment
 ENV DEBIAN_FRONTEND=noninteractive
