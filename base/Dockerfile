@@ -18,7 +18,7 @@ RUN apt update -y \
 # Install essential packages, including Docker Compose, fuser (psmisc), and Cypress dependencies
 RUN apt update -y \
     && apt install -y --no-install-recommends \
-        lsb-release gpg-agent software-properties-common curl jq unzip \
+        lsb-release gpg-agent software-properties-common curl jq unzip file \
         psmisc \
         libnss3-tools \
         docker-compose-plugin \
