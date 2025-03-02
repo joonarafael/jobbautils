@@ -11,6 +11,10 @@ ARG COMPOSE_VERSION=v2.32.4
 # Dumb-init version
 ARG DUMB_INIT_VERSION=1.2.5
 
+# Golang & Node
+ARG GO_VERSION=1.22.3
+ARG NODE_VERSION=22.12.0
+
 # Other arguments, expose TARGETPLATFORM for multi-arch builds
 ARG DEBUG=false
 ARG TARGETPLATFORM
@@ -33,8 +37,8 @@ RUN apt-get update \
   apt-utils \
   ca-certificates \
   curl \
-  gcc \
   file \
+  gcc \
   git \
   iproute2 \
   iptables \
@@ -56,6 +60,9 @@ RUN apt-get update \
   pigz \
   pkg-config \
   psmisc \
+  python3 \
+  python3-pip \
+  python3-venv \
   software-properties-common \
   sudo \
   tidy \
@@ -67,19 +74,37 @@ RUN apt-get update \
   xauth \
   xvfb \
   xz-utils \
-  zip \
-  && apt-get clean \
-  && rm -rf /var/lib/apt/lists/*
+  zip
 
 # Install Caddy
-RUN apt-get update -y \
-  && apt-get install -y --no-install-recommends \
+RUN apt-get install -y --no-install-recommends \
   debian-keyring \
   debian-archive-keyring \
   && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg \
   && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list \
   && apt-get update -u \
   && apt-get install -y --no-install-recommends caddy
+
+# Install GO
+RUN wget -q "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -O /tmp/go.tar.gz \
+  && tar -C /usr/local -xzf /tmp/go.tar.gz \
+  && rm /tmp/go.tar.gz \
+  && ln -s /usr/local/go/bin/go /usr/local/bin/go \
+  && ln -s /usr/local/go/bin/gofmt /usr/local/bin/gofmt
+
+# Install Node
+RUN curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash \
+  && export NVM_DIR="$HOME/.nvm" \
+  && . "$NVM_DIR/nvm.sh" \
+  && nvm install $NODE_VERSION \
+  && nvm use $NODE_VERSION \
+  && nvm alias default $NODE_VERSION \
+  && ln -s $HOME/.nvm/versions/node/v$NODE_VERSION/bin/node /usr/local/bin/node \
+  && ln -s $HOME/.nvm/versions/node/v$NODE_VERSION/bin/npm /usr/local/bin/npm
+
+# Ensure `python3` is the default `python`
+RUN ln -sf /usr/bin/python3 /usr/bin/python \
+  && ln -sf /usr/bin/pip3 /usr/bin/pip
 
 # Runner user
 RUN adduser --disabled-password --gecos "" --uid 1000 runner \
@@ -154,6 +179,9 @@ RUN ARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) \
   && curl --create-dirs -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-Linux-${ARCH}" -o /home/runner/bin/docker-compose ; \
   chmod +x /home/runner/bin/docker-compose
 
+RUN apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+
 FROM scratch AS final
 
 # Labels
@@ -172,6 +200,8 @@ ENV ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT=1
 ENV HOME=/home/runner
 ENV PATH="${PATH}:${HOME}/.local/bin:/home/runner/bin"
 ENV ImageOS=ubuntu22
+ENV GOPATH=/go
+ENV PATH=$GOPATH/bin:/usr/local/go/bin:$PATH
 
 USER runner
 
