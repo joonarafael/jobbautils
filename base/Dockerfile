@@ -40,6 +40,7 @@ RUN apt-get update \
   file \
   gcc \
   git \
+  gunicorn \
   iproute2 \
   iptables \
   jq \
@@ -86,11 +87,15 @@ RUN apt-get install -y --no-install-recommends \
   && apt-get install -y --no-install-recommends caddy
 
 # Install GO
-RUN wget -q "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -O /tmp/go.tar.gz \
+RUN curl -L "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -o /tmp/go.tar.gz \
   && tar -C /usr/local -xzf /tmp/go.tar.gz \
   && rm /tmp/go.tar.gz \
   && ln -s /usr/local/go/bin/go /usr/local/bin/go \
   && ln -s /usr/local/go/bin/gofmt /usr/local/bin/gofmt
+
+ENV GOPATH=/go
+ENV PATH=$GOPATH/bin:/usr/local/go/bin:$PATH
+RUN go version
 
 # Install Node
 RUN curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash \
@@ -101,10 +106,12 @@ RUN curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh |
   && nvm alias default $NODE_VERSION \
   && ln -s $HOME/.nvm/versions/node/v$NODE_VERSION/bin/node /usr/local/bin/node \
   && ln -s $HOME/.nvm/versions/node/v$NODE_VERSION/bin/npm /usr/local/bin/npm
+RUN node -v && npm -v
 
 # Ensure `python3` is the default `python`
 RUN ln -sf /usr/bin/python3 /usr/bin/python \
   && ln -sf /usr/bin/pip3 /usr/bin/pip
+RUN python --version && pip --version
 
 # Runner user
 RUN adduser --disabled-password --gecos "" --uid 1000 runner \
@@ -200,8 +207,6 @@ ENV ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT=1
 ENV HOME=/home/runner
 ENV PATH="${PATH}:${HOME}/.local/bin:/home/runner/bin"
 ENV ImageOS=ubuntu22
-ENV GOPATH=/go
-ENV PATH=$GOPATH/bin:/usr/local/go/bin:$PATH
 
 USER runner
 
