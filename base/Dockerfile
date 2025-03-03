@@ -1,5 +1,9 @@
 FROM ubuntu:22.04 AS build
 
+#
+# ARGS & ENV
+#
+
 # GitHub runner arguments
 ARG RUNNER_VERSION=2.322.0
 ARG RUNNER_CONTAINER_HOOKS_VERSION=0.6.2
@@ -13,7 +17,7 @@ ARG DUMB_INIT_VERSION=1.2.5
 
 # Golang & Node
 ARG GO_VERSION=1.22.3
-ARG NODE_VERSION=22.12.0
+ARG NODE_VERSION=22
 
 # Other arguments, expose TARGETPLATFORM for multi-arch builds
 ARG DEBUG=false
@@ -30,6 +34,10 @@ COPY images/.env /.env
 # Shell setup
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+#
+# BASE SOFTWARE & JOBBA CI/CD DEPENDENCIES
+#
+
 # Install base software
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
@@ -37,6 +45,7 @@ RUN apt-get update \
   apt-utils \
   ca-certificates \
   curl \
+  docker-buildx \
   file \
   gcc \
   git \
@@ -64,6 +73,7 @@ RUN apt-get update \
   python3 \
   python3-pip \
   python3-venv \
+  qemu-system \
   software-properties-common \
   sudo \
   tidy \
@@ -78,11 +88,12 @@ RUN apt-get update \
   zip
 
 # Install Caddy
-RUN apt-get install -y --no-install-recommends \
+RUN apt-get update -y \
+  && apt-get install -y --no-install-recommends \
   debian-keyring \
   debian-archive-keyring \
-  && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg \
-  && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list \
+  && curl -1sLf "https://dl.cloudsmith.io/public/caddy/stable/gpg.key" | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg \
+  && curl -1sLf "https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt" | tee /etc/apt/sources.list.d/caddy-stable.list \
   && apt-get update -u \
   && apt-get install -y --no-install-recommends caddy
 
@@ -98,20 +109,20 @@ ENV PATH=$GOPATH/bin:/usr/local/go/bin:$PATH
 RUN go version
 
 # Install Node
-RUN curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash \
-  && export NVM_DIR="$HOME/.nvm" \
-  && . "$NVM_DIR/nvm.sh" \
-  && nvm install $NODE_VERSION \
-  && nvm use $NODE_VERSION \
-  && nvm alias default $NODE_VERSION \
-  && ln -s $HOME/.nvm/versions/node/v$NODE_VERSION/bin/node /usr/local/bin/node \
-  && ln -s $HOME/.nvm/versions/node/v$NODE_VERSION/bin/npm /usr/local/bin/npm
+RUN curl -sL "https://deb.nodesource.com/setup_${NODE_VERSION}.x" -o /tmp/nodesource_setup.sh \
+  && chmod u+x /tmp/nodesource_setup.sh \
+  && bash /tmp/nodesource_setup.sh \
+  && apt-get install nodejs -y --no-install-recommends
 RUN node -v && npm -v
 
 # Ensure `python3` is the default `python`
 RUN ln -sf /usr/bin/python3 /usr/bin/python \
   && ln -sf /usr/bin/pip3 /usr/bin/pip
 RUN python --version && pip --version
+
+#
+# RUNNER SPECIFIC
+#
 
 # Runner user
 RUN adduser --disabled-password --gecos "" --uid 1000 runner \
@@ -135,6 +146,10 @@ RUN bash /kubectl.sh && rm /kubectl.sh
 # Install helm
 COPY images/software/get-helm.sh /helm.sh
 RUN bash /helm.sh && rm /helm.sh
+
+#
+# DOCKER
+#
 
 # Install Docker
 RUN export DOCKER_ARCH=x86_64 \
@@ -186,6 +201,11 @@ RUN ARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) \
   && curl --create-dirs -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-Linux-${ARCH}" -o /home/runner/bin/docker-compose ; \
   chmod +x /home/runner/bin/docker-compose
 
+#
+# POST-INSTALL
+#
+
+# Cleanup
 RUN apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
