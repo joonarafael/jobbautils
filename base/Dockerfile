@@ -16,7 +16,7 @@ ARG COMPOSE_VERSION=v2.32.4
 ARG DUMB_INIT_VERSION=1.2.5
 
 # Golang & Node
-ARG GO_VERSION=1.22.3
+ARG GO_VERSION=1.24.1
 ARG NODE_VERSION=22
 
 # Other arguments, expose TARGETPLATFORM for multi-arch builds
