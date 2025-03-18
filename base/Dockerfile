@@ -108,12 +108,13 @@ ENV GOPATH=/go
 ENV PATH=$GOPATH/bin:/usr/local/go/bin:$PATH
 RUN go version
 
-# Install Node
+# Install Node & Yarn
 RUN curl -sL "https://deb.nodesource.com/setup_${NODE_VERSION}.x" -o /tmp/nodesource_setup.sh \
   && chmod u+x /tmp/nodesource_setup.sh \
   && bash /tmp/nodesource_setup.sh \
-  && apt-get install nodejs -y --no-install-recommends
-RUN node -v && npm -v
+  && apt-get install nodejs -y --no-install-recommends \
+  && npm install --global yarn
+RUN node -v && npm -v && yarn --version
 
 # Ensure `python3` is the default `python`
 RUN ln -sf /usr/bin/python3 /usr/bin/python \
